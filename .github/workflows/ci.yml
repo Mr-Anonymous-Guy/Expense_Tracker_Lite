@@ -1,0 +1,40 @@
+name: FinSmart CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web-and-ai:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: FinSmart/package-lock.json
+      - name: Install JS dependencies
+        working-directory: FinSmart
+        run: npm install
+      - name: Build packages
+        working-directory: FinSmart
+        run: npm run build
+      - name: Run JS tests
+        working-directory: FinSmart
+        run: npm test
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API dependencies
+        working-directory: FinSmart/apps/api
+        run: pip install -r requirements.txt
+      - name: Run API tests
+        working-directory: FinSmart/apps/api
+        run: pytest

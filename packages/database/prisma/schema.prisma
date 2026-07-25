@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MEMBER
+  ADMIN
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum InvestmentKind {
+  MUTUAL_FUND
+  ETF
+  STOCK
+  CRYPTO
+  FIXED_INCOME
+}
+
+enum InsightSource {
+  RULES
+  OLLAMA
+  RAG
+}
+
+model User {
+  id             String                 @id @default(uuid()) @db.Uuid
+  username       String?                @unique @db.VarChar(80)
+  name           String                 @db.VarChar(120)
+  email          String                 @unique @db.VarChar(255)
+  passwordHash   String                 @map("password_hash")
+  role           UserRole               @default(MEMBER)
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+  sessions       Session[]
+  expenses       Expense[]
+  categories     Category[]
+  budgets        Budget[]
+  investments    Investment[]
+  goals          Goal[]
+  healthScores   FinancialHealthScore[]
+  insights       AiInsight[]
+  chatThreads    ChatThread[]
+  reports        Report[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  refreshHash  String   @map("refresh_hash")
+  userAgent    String?  @map("user_agent")
+  ipAddress    String?  @map("ip_address")
+  expiresAt    DateTime @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  name      String    @db.VarChar(80)
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+  budgets   Budget[]
+
+  @@unique([userId, name])
+  @@map("categories")
+}
+
+model Expense {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  merchant    String   @db.VarChar(160)
+  amount      Decimal  @db.Decimal(12, 2)
+  spentAt     DateTime @map("spent_at") @db.Date
+  description String?  @db.VarChar(300)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([userId, spentAt])
+  @@index([categoryId])
+  @@map("expenses")
+}
+
+model Budget {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  categoryId    String   @map("category_id") @db.Uuid
+  monthlyLimit  Decimal  @map("monthly_limit") @db.Decimal(12, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+  @@map("budgets")
+}
+
+model Investment {
+  id           String         @id @default(uuid()) @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  asset        String         @db.VarChar(160)
+  kind         InvestmentKind
+  units        Decimal        @default(0) @db.Decimal(18, 6)
+  currentValue Decimal        @map("current_value") @db.Decimal(14, 2)
+  monthlySip   Decimal        @map("monthly_sip") @db.Decimal(12, 2)
+  goal         String         @db.VarChar(180)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("investments")
+}
+
+model Goal {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  title         String   @db.VarChar(160)
+  targetAmount  Decimal  @map("target_amount") @db.Decimal(14, 2)
+  currentAmount Decimal  @default(0) @map("current_amount") @db.Decimal(14, 2)
+  deadline      DateTime @db.Date
+  priority      Priority @default(MEDIUM)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deadline])
+  @@map("goals")
+}
+
+model FinancialHealthScore {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  score             Int
+  savingsRate       Decimal  @map("savings_rate") @db.Decimal(5, 2)
+  budgetUtilization Decimal  @map("budget_utilization") @db.Decimal(5, 2)
+  emergencyMonths   Decimal  @map("emergency_months") @db.Decimal(5, 2)
+  calculatedAt      DateTime @default(now()) @map("calculated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, calculatedAt])
+  @@map("financial_health_scores")
+}
+
+model AiInsight {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  title     String        @db.VarChar(180)
+  body      String
+  impact    String        @db.VarChar(180)
+  priority  Priority      @default(MEDIUM)
+  source    InsightSource @default(RULES)
+  createdAt DateTime      @default(now()) @map("created_at")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("ai_insights")
+}
+
+model ChatThread {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  title     String        @db.VarChar(180)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("chat_threads")
+}
+
+model ChatMessage {
+  id        String     @id @default(uuid()) @db.Uuid
+  threadId  String     @map("thread_id") @db.Uuid
+  role      String     @db.VarChar(30)
+  content   String
+  createdAt DateTime   @default(now()) @map("created_at")
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("chat_messages")
+}
+
+model KnowledgeDocument {
+  id        String           @id @default(uuid()) @db.Uuid
+  title     String           @db.VarChar(180)
+  source    String           @db.VarChar(240)
+  createdAt DateTime         @default(now()) @map("created_at")
+  chunks    KnowledgeChunk[]
+
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id          String            @id @default(uuid()) @db.Uuid
+  documentId  String            @map("document_id") @db.Uuid
+  content     String
+  embedding   Json?
+  metadata    Json?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  document    KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("knowledge_chunks")
+}
+
+model Report {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  title       String   @db.VarChar(180)
+  period      String   @db.VarChar(80)
+  summary     String
+  generatedAt DateTime @default(now()) @map("generated_at") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, generatedAt])
+  @@map("reports")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String   @db.VarChar(120)
+  metadata  Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}

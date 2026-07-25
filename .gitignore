@@ -1,0 +1,14 @@
+node_modules/
+frontend/
+backend/
+apps/*/node_modules/
+apps/web/dist/
+apps/api/.venv/
+apps/api/**/__pycache__/
+apps/api/.env
+packages/database/node_modules/
+packages/database/generated/
+coverage/
+.env
+.env.local
+*.pyc

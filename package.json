@@ -1,0 +1,41 @@
+{
+  "name": "finsmart",
+  "version": "2.0.0",
+  "private": true,
+  "description": "AI-powered personal finance intelligence platform.",
+  "workspaces": [
+    "apps/web",
+    "apps/ai-worker",
+    "packages/database",
+    "packages/shared",
+    "packages/config",
+    "packages/ui"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "dev:all": "node scripts/dev-all.mjs",
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:ai": "npm run dev --workspace apps/ai-worker",
+    "build": "npm run build --workspace apps/web && npm run build --workspace apps/ai-worker && npm run build --workspace packages/shared",
+    "lint": "npm run lint --workspace apps/web && npm run lint --workspace apps/ai-worker",
+    "format": "prettier --write .",
+    "test": "npm run test --workspace apps/web && npm run test --workspace apps/ai-worker",
+    "db:generate": "npm run generate --workspace packages/database",
+    "db:migrate": "npm run migrate --workspace packages/database",
+    "db:seed": "npm run seed --workspace packages/database",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
+    "prettier": "^3.4.2",
+    "typescript-eslint": "^8.17.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,md}": [
+      "prettier --write"
+    ]
+  }
+}

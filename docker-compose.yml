@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: finsmart-postgres
+    environment:
+      POSTGRES_DB: finsmart
+      POSTGRES_USER: finsmart
+      POSTGRES_PASSWORD: finsmart
+    ports:
+      - "5432:5432"
+    volumes:
+      - finsmart-postgres:/var/lib/postgresql/data
+      - ./packages/database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finsmart -d finsmart"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: finsmart-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - finsmart-ollama:/root/.ollama
+
+  api:
+    build:
+      context: ./apps/api
+    container_name: finsmart-api
+    environment:
+      DATABASE_URL: postgresql://finsmart:finsmart@postgres:5432/finsmart
+      JWT_SECRET: change-me-in-production-with-32-chars
+      SECRET_KEY: change-me-in-production-with-32-chars
+      AI_WORKER_URL: http://ai-worker:8787
+      CORS_ORIGINS: http://localhost:5174,http://127.0.0.1:5174
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ai-worker:
+    build:
+      context: ./apps/ai-worker
+    container_name: finsmart-ai-worker
+    environment:
+      PORT: 8787
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_CHAT_MODEL: qwen3:8b
+      OLLAMA_FALLBACK_MODEL: llama3.1:8b
+    ports:
+      - "8787:8787"
+    depends_on:
+      - ollama
+
+  web:
+    build:
+      context: ./apps/web
+    container_name: finsmart-web
+    environment:
+      VITE_API_URL: http://127.0.0.1:5000/api
+    ports:
+      - "5174:5174"
+    depends_on:
+      - api
+
+volumes:
+  finsmart-postgres:
+  finsmart-ollama:
